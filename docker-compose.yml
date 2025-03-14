@@ -44,7 +44,7 @@ services:
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:
-      - ./AudioBooks/BackEnd:/app
+      - ./BackEnd:/app
     environment:
       - PORT=3000
       - HOST_NAME=${HOST_NAME:-localhost}
@@ -69,7 +69,7 @@ services:
     ports:
       - "${TTS_PORT:-8000}:8000"
     volumes:
-      - ./AudioBooks/tts-service:/app
+      - ./tts-service:/app
       - ./logs:/app/logs
       - ./temp/tts_temp:/tmp/tts_temp
       - ./temp/tts_uploads:/tmp/tts_uploads
