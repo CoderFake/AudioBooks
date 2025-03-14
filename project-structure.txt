@@ -1,0 +1,68 @@
+tts-service/
+├── api/
+│   ├── __init__.py
+│   ├── endpoints/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── texts.py
+│   │   └── audio.py
+│   ├── dependencies.py
+│   └── router.py
+├── core/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── security.py
+│   └── logging.py
+├── db/
+│   ├── __init__.py
+│   ├── mongodb.py
+│   └── repositories/
+│       ├── __init__.py
+│       ├── user_repository.py
+│       ├── text_repository.py
+│       └── audio_repository.py
+├── models/
+│   ├── __init__.py
+│   ├── user.py
+│   ├── text.py
+│   └── audio.py
+├── schemas/
+│   ├── __init__.py
+│   ├── user.py
+│   ├── text.py
+│   └── audio.py
+├── services/
+│   ├── __init__.py
+│   ├── auth_service.py
+│   ├── text_service.py
+│   ├── audio_service.py
+│   └── tts/
+│       ├── __init__.py
+│       ├── tts_factory.py
+│       ├── tts_base.py
+│       ├── vietTTS_provider.py
+│       └── other_tts_providers.py
+├── utils/
+│   ├── __init__.py
+│   ├── text_processor.py
+│   ├── firebase_storage.py
+│   └── audio_utils.py
+├── main.py
+├── requirements.txt
+└── alembic/
+    ├── env.py
+    ├── README
+    ├── script.py.mako
+    └── versions/
+
+docker/
+├── api/
+│   └── Dockerfile
+├── mongodb/
+│   └── init-mongo.js
+└── docker-compose.yml
+
+.env
+.env.example
+.gitignore
+README.md
