@@ -3,7 +3,6 @@ import asyncio
 import logging
 import tempfile
 import time
-import wave
 import uuid
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status, BackgroundTasks
@@ -16,7 +15,7 @@ from models.audio import Audio, AudioSegment
 from models.user import User
 from schemas.audio import AudioCreate, TTSRequest
 from services.tts.tts_factory import TTSFactory
-from utils.firebase_storage import upload_file_to_firebase, delete_file_from_firebase
+from utils.firebase_firestore import upload_audio_to_firestore, upload_audio_segment_to_firestore, delete_audio_from_firestore
 from utils.text_processor import preprocess_text, split_text_into_chunks, analyze_vietnamese_text
 from utils.audio_utils import concatenate_audio_files, get_audio_duration
 
@@ -30,8 +29,7 @@ class AudioService:
         self.tts_factory = TTSFactory()
 
     async def create_audio_request(self, request: TTSRequest, user: User) -> Audio:
-        """Tạo yêu cầu chuyển văn bản thành giọng nói"""
-        # Kiểm tra văn bản tồn tại
+
         text = await self.text_repository.get_by_id(request.text_id)
         if not text:
             raise HTTPException(
@@ -39,29 +37,25 @@ class AudioService:
                 detail="Text not found"
             )
 
-        # Kiểm tra quyền truy cập (chỉ người tạo văn bản hoặc admin mới có quyền)
         if str(text.user_id) != str(user.id) and not user.is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not enough permissions"
             )
 
-        # Kiểm tra xem đã có audio cho văn bản này chưa
         existing_audio = await self.audio_repository.get_by_text_id(request.text_id)
         if existing_audio and existing_audio.status == "completed":
-            # Nếu đã có và đã hoàn thành, trả về audio hiện có
             return existing_audio
 
-        # Tạo yêu cầu audio mới
         audio_data = {
             "text_id": ObjectId(request.text_id),
             "user_id": ObjectId(str(user.id)),
             "voice_model": request.voice_model,
             "format": request.format,
             "sample_rate": request.sample_rate,
-            "url": "",  # Sẽ được cập nhật sau khi tạo file audio
-            "duration": 0.0,  # Sẽ được cập nhật sau khi tạo file audio
-            "segments": [],  # Sẽ được cập nhật sau khi tạo file audio
+            "url": "",
+            "duration": 0.0,
+            "segments": [],
             "status": "pending"
         }
 
@@ -69,7 +63,7 @@ class AudioService:
         return audio
 
     async def generate_audio(self, audio_id: str, background_tasks: BackgroundTasks) -> Dict[str, Any]:
-        """Khởi động quá trình tạo audio nền (background task)"""
+
         audio = await self.audio_repository.get_by_id(audio_id)
         if not audio:
             raise HTTPException(
@@ -77,10 +71,8 @@ class AudioService:
                 detail="Audio request not found"
             )
 
-        # Cập nhật trạng thái
         await self.audio_repository.update_status(str(audio.id), "processing")
 
-        # Khởi chạy task nền
         background_tasks.add_task(self._process_audio_task, str(audio.id))
 
         return {"status": "processing", "message": "Audio generation started", "audio_id": str(audio.id)}
@@ -95,7 +87,6 @@ class AudioService:
                 detail="Audio not found"
             )
 
-        # Kiểm tra quyền truy cập
         if str(audio.user_id) != str(user.id) and not user.is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -125,20 +116,20 @@ class AudioService:
                 detail="Not enough permissions"
             )
 
-        # Xóa file audio trên Firebase Storage
-        if audio.url:
+        # Xóa file audio trên Firestore
+        if audio.url and audio.url.startswith("firestore://"):
             try:
-                await delete_file_from_firebase(audio.url)
+                await delete_audio_from_firestore(audio.url)
             except Exception as e:
-                logger.warning(f"Error deleting audio file from Firebase: {str(e)}")
+                logger.warning(f"Error deleting audio file from Firestore: {str(e)}")
 
         # Xóa các segment file (nếu có)
         for segment in audio.segments:
-            if segment.url:
+            if segment.url and segment.url.startswith("firestore://"):
                 try:
-                    await delete_file_from_firebase(segment.url)
+                    await delete_audio_from_firestore(segment.url)
                 except Exception as e:
-                    logger.warning(f"Error deleting segment file from Firebase: {str(e)}")
+                    logger.warning(f"Error deleting segment file from Firestore: {str(e)}")
 
         return await self.audio_repository.delete(audio_id)
 
@@ -225,16 +216,25 @@ class AudioService:
                 output_filename = os.path.join(temp_dir, f"output.{audio.format}")
                 concatenate_audio_files(segment_files, output_filename)
 
-                logger.info(f"Uploading audio file to Firebase Storage...")
-                # Upload file audio lên Firebase Storage
-                firebase_filename = f"audios/{audio.user_id}/{audio.text_id}/{audio_id}.{audio.format}"
-                firebase_url = await upload_file_to_firebase(output_filename, firebase_filename)
+                logger.info(f"Uploading audio file to Firestore...")
+                # Upload file audio lên Firestore
+                collection_path = "audios"
+                firebase_url = await upload_audio_to_firestore(
+                    output_filename,
+                    collection_path,
+                    f"{audio.user_id}_{audio.text_id}_{audio_id}"
+                )
 
                 # Upload từng segment (nếu cần)
-                logger.info(f"Uploading {len(segments)} audio segments to Firebase Storage...")
+                logger.info(f"Uploading {len(segments)} audio segments to Firestore...")
                 for i, segment in enumerate(segments):
-                    segment_firebase_filename = f"audios/{audio.user_id}/{audio.text_id}/{audio_id}_segment_{i}.{audio.format}"
-                    segment_url = await upload_file_to_firebase(segment_files[i], segment_firebase_filename)
+                    segment_id = f"segment_{i}"
+                    segment_url = await upload_audio_segment_to_firestore(
+                        segment_files[i],
+                        collection_path,
+                        f"{audio.user_id}_{audio.text_id}_{audio_id}",
+                        segment_id
+                    )
                     segments[i]["url"] = segment_url
 
                 logger.info(f"Updating audio record in database...")
@@ -257,7 +257,6 @@ class AudioService:
                 await self.text_repository.update_status(str(text.id), "failed", str(e))
                 raise
             finally:
-                # Xóa thư mục tạm thời
                 for file in os.listdir(temp_dir):
                     try:
                         os.remove(os.path.join(temp_dir, file))

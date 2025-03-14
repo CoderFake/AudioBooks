@@ -1,7 +1,9 @@
 import os
-from typing import Any, Dict, Optional
-from pydantic import BaseSettings, validator
-from pathlib import Path
+try:
+    from pydantic_settings import BaseSettings
+    from pydantic import validator
+except ImportError:
+    from pydantic import BaseSettings, validator
 
 
 class Settings(BaseSettings):

@@ -1,7 +1,11 @@
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
+import base64
+import io
+import tempfile
+import os
 
 from api.dependencies import get_current_active_user, get_audio_repository, get_text_repository
 from db.repositories.audio_repository import AudioRepository
@@ -10,6 +14,7 @@ from models.user import User
 from models.audio import Audio
 from services.audio_service import AudioService
 from schemas.audio import AudioResponse, TTSRequest
+from utils.firebase_firestore import download_audio_from_firestore
 
 router = APIRouter()
 
@@ -181,3 +186,153 @@ async def regenerate_audio(
     await audio_service.generate_audio(audio_id, background_tasks)
 
     return {"status": "processing", "message": "Audio regeneration started"}
+
+
+@router.get("/{audio_id}/stream")
+async def stream_audio(
+        audio_id: str,
+        current_user: User = Depends(get_current_active_user),
+        audio_repository: AudioRepository = Depends(get_audio_repository)
+) -> Any:
+
+    audio = await audio_repository.get_by_id(audio_id)
+
+    if not audio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audio not found"
+        )
+
+    if str(audio.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+
+    if audio.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Audio not ready for streaming"
+        )
+
+    if not audio.url or not audio.url.startswith("firestore://"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Audio not available in Firestore"
+        )
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio.format}") as temp_file:
+        temp_path = temp_file.name
+
+    try:
+        success = await download_audio_from_firestore(audio.url, temp_path)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to download audio from Firestore"
+            )
+
+        def iterfile():
+            with open(temp_path, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+        content_type = f"audio/{audio.format}"
+        return StreamingResponse(iterfile(), media_type=content_type)
+
+    except Exception as e:
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error streaming audio: {str(e)}"
+        )
+
+
+@router.get("/{audio_id}/segments/{segment_id}/stream")
+async def stream_audio_segment(
+        audio_id: str,
+        segment_id: str,
+        current_user: User = Depends(get_current_active_user),
+        audio_repository: AudioRepository = Depends(get_audio_repository)
+) -> Any:
+
+    audio = await audio_repository.get_by_id(audio_id)
+
+    if not audio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audio not found"
+        )
+
+    if str(audio.user_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+
+    if audio.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Audio not ready for streaming"
+        )
+
+    segment_idx = int(segment_id.replace("segment_", ""))
+    if segment_idx < 0 or segment_idx >= len(audio.segments):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Segment {segment_id} not found"
+        )
+
+    segment = audio.segments[segment_idx]
+
+    if not segment.url or not segment.url.startswith("firestore://"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Segment not available in Firestore"
+        )
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio.format}") as temp_file:
+        temp_path = temp_file.name
+
+    try:
+        success = await download_audio_from_firestore(segment.url, temp_path)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to download segment from Firestore"
+            )
+
+        def iterfile():
+            with open(temp_path, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+        content_type = f"audio/{audio.format}"
+        return StreamingResponse(iterfile(), media_type=content_type)
+
+    except Exception as e:
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error streaming segment: {str(e)}"
+        )

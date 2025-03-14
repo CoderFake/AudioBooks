@@ -12,13 +12,26 @@ logger = logging.getLogger(__name__)
 
 class VietTTSProvider(TTSBase):
     def __init__(self, voice_model: str = "female"):
+        logger.info(f"Initializing VietTTSProvider with voice model: {voice_model}")
+        try:
+            import sys
+            logger.info(f"Python executable: {sys.executable}")
+            logger.info(f"Python path: {sys.path}")
+
+            import vietTTS
+            logger.info(f"VietTTS module location: {vietTTS.__file__}")
+        except ImportError as e:
+            logger.error(f"VietTTS import failed: {e}")
+            raise
+
         self._voice_model = voice_model if voice_model in self.supported_voices else "female"
         self._check_vietTTS_installation()
 
     async def synthesize(self, text: str, output_file: str) -> None:
-
         try:
             logger.info(f"Synthesizing text with VietTTS using {self._voice_model} voice")
+            logger.info(f"Text length: {len(text)} characters")
+            logger.info(f"Output file: {output_file}")
 
             with tempfile.NamedTemporaryFile(suffix='.txt', mode='w', encoding='utf-8', delete=False) as f:
                 text_file = f.name
@@ -32,6 +45,7 @@ class VietTTSProvider(TTSBase):
                 "--output", output_file,
                 "--model", f"infore_{self._voice_model}"
             ]
+            logger.info(f"Executing command: {' '.join(command)}")
 
             process = await asyncio.create_subprocess_exec(
                 *command,
@@ -41,19 +55,25 @@ class VietTTSProvider(TTSBase):
 
             stdout, stderr = await process.communicate()
 
+            if stdout:
+                logger.info(f"Command STDOUT: {stdout.decode()}")
+            if stderr:
+                logger.error(f"Command STDERR: {stderr.decode()}")
+
             if process.returncode != 0:
                 error_msg = stderr.decode()
                 logger.error(f"Error synthesizing speech: {error_msg}")
                 raise Exception(f"VietTTS synthesis failed: {error_msg}")
 
             os.unlink(text_file)
-
             logger.info(f"Successfully synthesized text to {output_file}")
 
         except Exception as e:
-            logger.exception(f"Error synthesizing speech with VietTTS: {str(e)}")
+            logger.exception(f"Comprehensive error in VietTTS synthesis: {str(e)}")
+            # Include system path and environment details in error logging
+            logger.info(f"Current working directory: {os.getcwd()}")
+            logger.info(f"Environment PATH: {os.environ.get('PATH', 'Not set')}")
             raise
-
     async def is_available(self) -> bool:
         try:
             result = subprocess.run(
