@@ -1,15 +1,15 @@
 const nodemailer = require("nodemailer");
+require("dotenv").config();
 
-// Cấu hình transporter cho Nodemailer
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: "kien911002@gmail.com", // Email của bạn
-        pass: "lyra thtj gwoa pmgy", // Mật khẩu ứng dụng
+        user: process.env.EMAIL_NAME,
+        pass: process.env.EMAIL_PASS,
     },
 });
 
-// Hàm gửi email OTP
+
 async function sendEmail(to, otp) {
     const mailOptions = {
         from: "FrontEnd App",

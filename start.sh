@@ -28,8 +28,8 @@ function Create-Directories {
 function Check-Docker {
     Write-Host "Kiểm tra Docker..." -ForegroundColor Cyan
     try {
-        $null = docker --version
-        $null = docker-compose --version
+        $null = shell --version
+        $null = shell-compose --version
     }
     catch {
         Handle-Error "Docker hoặc Docker Compose chưa được cài đặt. Vui lòng cài đặt trước khi tiếp tục."
@@ -106,7 +106,7 @@ function Start-Services {
     Write-Host "Đang khởi động các dịch vụ..." -ForegroundColor Cyan
     try {
         $composeFile = if (Test-Path ".\docker-compose.yml") { ".\docker-compose.yml" } else { "docker-compose.yml" }
-        docker-compose -f $composeFile up -d
+        shell-compose -f $composeFile up -d
         if ($LASTEXITCODE -ne 0) {
             Handle-Error "Không thể khởi động dịch vụ. Kiểm tra logs để biết thêm chi tiết."
         }
@@ -137,7 +137,7 @@ function Start-Services {
 function Stop-Services {
     Write-Host "Đang dừng các dịch vụ..." -ForegroundColor Cyan
     try {
-        docker-compose down
+        shell-compose down
         if ($LASTEXITCODE -ne 0) {
             Handle-Error "Không thể dừng dịch vụ. Kiểm tra logs để biết thêm chi tiết."
         }
@@ -151,7 +151,7 @@ function Stop-Services {
 function Restart-Services {
     Write-Host "Đang khởi động lại các dịch vụ..." -ForegroundColor Cyan
     try {
-        docker-compose restart
+        shell-compose restart
         if ($LASTEXITCODE -ne 0) {
             Handle-Error "Không thể khởi động lại dịch vụ. Kiểm tra logs để biết thêm chi tiết."
         }
@@ -166,7 +166,7 @@ function Restart-Services {
 function Show-Logs {
     Write-Host "Đang hiển thị logs (Ctrl+C để thoát)..." -ForegroundColor Cyan
     try {
-        docker-compose logs -f
+        shell-compose logs -f
     }
     catch {
         Write-Host "Đã thoát khỏi logs." -ForegroundColor Yellow
@@ -180,13 +180,13 @@ function Reset-AllData {
     if ($confirmation -eq "y" -or $confirmation -eq "Y") {
         Write-Host "Đang xóa dữ liệu và containers..." -ForegroundColor Yellow
         try {
-            docker-compose down -v
+            shell-compose down -v
             if ($LASTEXITCODE -ne 0) {
                 Handle-Error "Không thể xóa dữ liệu. Kiểm tra logs để biết thêm chi tiết."
             }
 
             Write-Host "Khởi động lại dịch vụ..." -ForegroundColor Cyan
-            docker-compose up -d
+            shell-compose up -d
             if ($LASTEXITCODE -ne 0) {
                 Handle-Error "Không thể khởi động lại dịch vụ. Kiểm tra logs để biết thêm chi tiết."
             }
@@ -205,9 +205,9 @@ function Reset-AllData {
 function Rebuild-Services {
     Write-Host "Đang xây dựng lại containers..." -ForegroundColor Cyan
     try {
-        docker-compose down
-        docker-compose build --no-cache
-        docker-compose up -d
+        shell-compose down
+        shell-compose build --no-cache
+        shell-compose up -d
         if ($LASTEXITCODE -ne 0) {
             Handle-Error "Không thể xây dựng lại containers. Kiểm tra logs để biết thêm chi tiết."
         }

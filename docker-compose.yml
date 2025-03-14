@@ -12,7 +12,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-123456}
     volumes:
       - mongodb-data:/data/db
-      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./shell/mongodb/init-mongo.js:/shell-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - audiobooks-network
     restart: unless-stopped
