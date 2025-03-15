@@ -74,7 +74,8 @@ class VietTTSProvider(TTSBase):
             logger.info(f"Current working directory: {os.getcwd()}")
             logger.info(f"Environment PATH: {os.environ.get('PATH', 'Not set')}")
             raise
-    async def is_available(self) -> bool:
+
+    def is_available(self) -> bool:
         try:
             result = subprocess.run(
                 ["python", "-m", "vietTTS.synthesize", "--help"],
@@ -87,7 +88,7 @@ class VietTTSProvider(TTSBase):
             logger.error(f"VietTTS is not available: {str(e)}")
             return False
 
-    def _check_vietTTS_installation(self) -> None:
+    def _check_vietTTS_installation(self) -> bool:
         try:
             import importlib
             vietTTS_spec = importlib.util.find_spec("vietTTS")

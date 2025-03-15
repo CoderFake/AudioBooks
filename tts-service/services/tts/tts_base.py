@@ -8,7 +8,7 @@ class TTSBase(ABC):
         pass
 
     @abstractmethod
-    async def is_available(self) -> bool:
+    def is_available(self) -> bool:
         pass
 
     @property

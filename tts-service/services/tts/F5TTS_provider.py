@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class F5TTSProvider(TTSBase):
     def __init__(self, voice_model: str = "female"):
-        logger.info(f"Khởi tạo F5-TTS với mô hình giọng: {voice_model}")
+        logger.info(f"Initializing F5-TTS with voice model: {voice_model}")
 
         self._check_f5tts_installation()
 
@@ -21,43 +21,53 @@ class F5TTSProvider(TTSBase):
     def _check_f5tts_installation(self):
         try:
             import f5_tts
-            logger.info("F5-TTS đã được cài đặt")
-        except ImportError:
-            logger.warning("F5-TTS chưa được cài đặt.")
+            logger.info("F5-TTS is installed")
+            return True
+        except ImportError as e:
+            logger.warning(f"F5-TTS is not installed: {e}")
             raise
 
     async def synthesize(self, text: str, output_file: str) -> None:
         try:
             import f5_tts
 
-            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
-            f5_tts.synthesize(
-                text,
-                output_file,
-                model=self._model_path,
-                sample_rate=22050,
-                speed=1.0
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: f5_tts.synthesize(
+                    text,
+                    output_file,
+                    model=self._model_path,
+                    sample_rate=22050,
+                    speed=1.0
+                )
             )
 
-            logger.info(f"Chuyển đổi văn bản thành công: {output_file}")
+            logger.info(f"Successfully converted text to speech: {output_file}")
 
         except Exception as e:
-            logger.exception(f"Lỗi khi chuyển đổi văn bản bằng F5-TTS: {str(e)}")
+            logger.exception(f"Error converting text with F5-TTS: {str(e)}")
             raise
 
-    async def is_available(self) -> bool:
+    def is_available(self) -> bool:
         try:
             import f5_tts
 
             model_path = os.path.expanduser(f"~/.config/f5-tts/models/{self._voice_model}")
             if not os.path.exists(model_path):
-                logger.warning(f"Không tìm thấy model tại {model_path}")
+                logger.warning(f"Model not found at {model_path}")
+                return False
+
+            config_file = os.path.join(model_path, "config.json")
+            if not os.path.exists(config_file):
+                logger.warning(f"Config file not found at {config_file}")
                 return False
 
             return True
         except ImportError:
-            logger.warning("F5-TTS không được cài đặt")
+            logger.warning("F5-TTS is not installed")
             return False
 
     @property
