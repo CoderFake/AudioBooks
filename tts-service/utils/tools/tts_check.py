@@ -57,7 +57,13 @@ def check_f5tts():
 
     try:
         import f5_tts
-        logger.info("Successfully imported f5_tts module")
+        logger.info(f"Successfully imported f5_tts module from: {f5_tts.__file__}")
+
+        if hasattr(f5_tts, 'synthesize'):
+            logger.info("f5_tts.synthesize function found")
+        else:
+            logger.error("f5_tts.synthesize function NOT found")
+
         return True
     except Exception as e:
         logger.error(f"Error importing f5_tts module: {str(e)}")
@@ -114,3 +120,78 @@ def check_viettts():
         return True
     except Exception as e:
         logger.error(f"Error importing vietTTS module: {str(e)}")
+        return False
+
+
+def check_system_deps():
+    logger.info("Checking system dependencies...")
+
+    # Kiểm tra ffmpeg
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        if result.returncode == 0:
+            logger.info("ffmpeg is installed")
+        else:
+            logger.error("ffmpeg is NOT installed")
+    except Exception:
+        logger.error("ffmpeg is NOT installed or not in PATH")
+
+    try:
+        import torch
+        logger.info(f"PyTorch is installed: version {torch.__version__}")
+
+        cuda_available = torch.cuda.is_available()
+        logger.info(f"CUDA is {'available' if cuda_available else 'NOT available'}")
+
+        if cuda_available:
+            logger.info(f"CUDA version: {torch.version.cuda}")
+
+    except ImportError:
+        logger.error("PyTorch is NOT installed")
+
+    try:
+        import torchaudio
+        logger.info(f"torchaudio is installed: version {torchaudio.__version__}")
+    except ImportError:
+        logger.error("torchaudio is NOT installed")
+
+    try:
+        import librosa
+        logger.info(f"librosa is installed: version {librosa.__version__}")
+    except ImportError:
+        logger.error("librosa is NOT installed")
+
+    try:
+        import pydub
+        logger.info(f"pydub is installed")
+    except ImportError:
+        logger.error("pydub is NOT installed")
+
+
+def main():
+    logger.info("===== TTS Service System Check =====")
+
+    check_system_deps()
+
+    logger.info("\n===== F5-TTS Check =====")
+    f5tts_ok = check_f5tts()
+
+    logger.info("\n===== VietTTS Check =====")
+    viettts_ok = check_viettts()
+
+    logger.info("\n===== Summary =====")
+    logger.info(f"F5-TTS: {'OK' if f5tts_ok else 'FAIL'}")
+    logger.info(f"VietTTS: {'OK' if viettts_ok else 'FAIL'}")
+
+    if f5tts_ok or viettts_ok:
+        logger.info("At least one TTS engine is available")
+    else:
+        logger.error("No TTS engine is available")
+
+
+if __name__ == "__main__":
+    main()

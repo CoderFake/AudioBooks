@@ -3,7 +3,6 @@ from typing import Dict, Type
 
 from services.tts.F5TTS_provider import F5TTSProvider
 from services.tts.tts_base import TTSBase
-from services.tts.vietTTS_provider import VietTTSProvider
 from services.tts.fallback_provider import FallbackTTSProvider
 
 logger = logging.getLogger(__name__)
@@ -13,7 +12,6 @@ class TTSFactory:
     def __init__(self):
         self._engines: Dict[str, Type[TTSBase]] = {
             "f5-tts": F5TTSProvider,
-            "vietTTS": VietTTSProvider,
             "fallback": FallbackTTSProvider,
         }
         self._instances: Dict[str, TTSBase] = {}
@@ -37,26 +35,12 @@ class TTSFactory:
             logger.warning(f"Could not use F5-TTS: {str(f5_error)}")
 
             try:
-                logger.info("Attempting to use VietTTS engine")
-                viet_tts_engine = VietTTSProvider(voice_model)
-
-                if viet_tts_engine.is_available():
-                    logger.info("Using VietTTS engine successfully")
-                    return viet_tts_engine
-                else:
-                    logger.warning("VietTTS is not available")
-                    raise ImportError("VietTTS không khả dụng")
-
-            except Exception as viet_error:
-                logger.warning(f"Could not use VietTTS: {str(viet_error)}")
-
-                try:
-                    logger.info("Using fallback TTS engine as last resort")
-                    fallback_engine = FallbackTTSProvider(voice_model)
-                    return fallback_engine
-                except Exception as fallback_error:
-                    logger.error(f"All TTS engines failed: {str(fallback_error)}")
-                    raise RuntimeError("Không tìm thấy bất kỳ TTS engine nào để sử dụng")
+                logger.info("Using fallback TTS engine as last resort")
+                fallback_engine = FallbackTTSProvider(voice_model)
+                return fallback_engine
+            except Exception as fallback_error:
+                logger.error(f"All TTS engines failed: {str(fallback_error)}")
+                raise RuntimeError("Không thể sử dụng bất kỳ TTS engine nào")
 
     def get_available_voices(self) -> Dict[str, list]:
         voices = {}

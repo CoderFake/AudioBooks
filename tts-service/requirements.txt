@@ -21,9 +21,9 @@ firebase-admin==6.2.0
 google-api-core==2.24.2
 google-auth==2.38.0
 google-cloud-firestore==2.20.1
-google-cloud-storage==3.1.0
+google-cloud-storage>=1.37.1,<2.0
 h11==0.14.0
-Jinja2==3.1.2
+Jinja2==3.1.4
 joblib==1.4.2
 jose==1.0.0
 langdetect==1.0.9
@@ -65,4 +65,19 @@ uvicorn==0.24.0
 email-validator>=2.0.0
 python-dateutil==2.9.0.post0
 
-
+# F5-TTS specific dependencies
+torch==2.0.0
+torchaudio==2.0.0
+torchvision==0.15.1
+accelerate
+bitsandbytes
+ema-pytorch>=0.5.2
+x-transformers>=1.31.14
+transformers
+transformers-stream-generator
+torchdiffeq
+vocos
+cached-path
+datasets
+safetensors
+wandb

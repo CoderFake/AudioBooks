@@ -1,9 +1,6 @@
 import os
 import logging
 import asyncio
-import tempfile
-import subprocess
-from typing import List, Optional
 import wave
 import struct
 import numpy as np
@@ -31,7 +28,7 @@ class FallbackTTSProvider(TTSBase):
                 frequency = 140
 
             duration = min(5.0, 0.1 * len(text))
-            sample_rate = 22050
+            sample_rate = 24000
             amplitude = 16000
 
             samples = []
@@ -53,7 +50,7 @@ class FallbackTTSProvider(TTSBase):
             logger.exception(f"Error generating fallback audio: {str(e)}")
             raise
 
-    async def is_available(self) -> bool:
+    def is_available(self) -> bool:
         return True
 
     @property

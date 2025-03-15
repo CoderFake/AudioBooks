@@ -9,7 +9,6 @@ from pathlib import Path
 
 sys.path.insert(0, '/app')
 
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -22,7 +21,6 @@ logger = logging.getLogger("tts-install")
 
 
 def run_command(cmd, cwd=None):
-    """Run a shell command and log the output."""
     logger.info(f"Running command: {' '.join(cmd)}")
     result = subprocess.run(
         cmd,
@@ -45,19 +43,36 @@ def install_f5tts():
     """Install F5-TTS and download its models."""
     logger.info("Installing F5-TTS...")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+    # Kiểm tra xem F5-TTS đã được cài đặt chưa
+    try:
+        import f5_tts
+        logger.info(f"F5-TTS đã được cài đặt tại: {f5_tts.__file__}")
+    except ImportError:
+        logger.info("F5-TTS chưa được cài đặt, đang cài đặt...")
+
+        # Cài đặt PyTorch với phiên bản cụ thể
         try:
-            run_command(["git", "clone", "https://github.com/SWivid/F5-TTS.git", temp_dir])
+            run_command([
+                sys.executable, "-m", "pip", "install",
+                "torch==2.0.0+cu118", "torchaudio==2.0.0+cu118", "torchvision==0.15.1+cu118",
+                "--extra-index-url", "https://download.pytorch.org/whl/cu118"
+            ])
+        except subprocess.CalledProcessError:
+            logger.warning("Không thể cài đặt phiên bản PyTorch cụ thể, sử dụng phiên bản mặc định...")
+            run_command([sys.executable, "-m", "pip", "install", "torch", "torchaudio", "torchvision"])
 
-            run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=temp_dir)
-
-            logger.info("F5-TTS installed successfully")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to install F5-TTS: {str(e)}")
-            return False
+        # Clone và cài đặt F5-TTS
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                run_command(["git", "clone", "https://github.com/SWivid/F5-TTS.git", temp_dir])
+                run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=temp_dir)
+                logger.info("F5-TTS đã được cài đặt thành công")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Không thể cài đặt F5-TTS: {str(e)}")
+                return False
 
     # Download models
-    logger.info("Downloading F5-TTS models...")
+    logger.info("Đang tải models F5-TTS...")
     models_dir = os.path.expanduser("~/.config/f5-tts/models")
     os.makedirs(models_dir, exist_ok=True)
 
@@ -66,93 +81,126 @@ def install_f5tts():
     os.makedirs(female_dir, exist_ok=True)
     os.makedirs(male_dir, exist_ok=True)
 
-    # Download female model
+    # Kiểm tra xem model đã tồn tại chưa
+    female_config = os.path.join(female_dir, "config.json")
+    male_config = os.path.join(male_dir, "config.json")
+
+    if not os.path.exists(female_config):
+        # Download female model
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
+                female_zip = temp_file.name
+
+            run_command([
+                "curl", "-L", "-o", female_zip,
+                "https://github.com/SWivid/F5-TTS/releases/download/v1.0.0/female.zip"
+            ])
+
+            run_command(["unzip", "-o", female_zip, "-d", female_dir])
+            os.unlink(female_zip)
+
+            logger.info(f"Female model đã được tải về {female_dir}")
+        except Exception as e:
+            logger.error(f"Không thể tải female model: {str(e)}")
+    else:
+        logger.info(f"Female model đã tồn tại tại {female_dir}")
+
+    if not os.path.exists(male_config):
+        # Download male model
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
+                male_zip = temp_file.name
+
+            run_command([
+                "curl", "-L", "-o", male_zip,
+                "https://github.com/SWivid/F5-TTS/releases/download/v1.0.0/male.zip"
+            ])
+
+            run_command(["unzip", "-o", male_zip, "-d", male_dir])
+            os.unlink(male_zip)
+
+            logger.info(f"Male model đã được tải về {male_dir}")
+        except Exception as e:
+            logger.error(f"Không thể tải male model: {str(e)}")
+    else:
+        logger.info(f"Male model đã tồn tại tại {male_dir}")
+
+    # Thêm F5-TTS src vào PYTHONPATH
+    f5tts_dir = os.path.join(os.path.dirname(os.path.dirname(f5_tts.__file__)), 'src')
+    if f5tts_dir not in sys.path:
+        sys.path.append(f5tts_dir)
+        logger.info(f"Đã thêm {f5tts_dir} vào PYTHONPATH")
+
+    # Kiểm tra lại cài đặt
     try:
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
-            female_zip = temp_file.name
-
-        run_command([
-            "curl", "-L", "-o", female_zip,
-            "https://github.com/SWivid/F5-TTS/releases/download/v1.0.0/female.zip"
-        ])
-
-        run_command(["unzip", "-o", female_zip, "-d", female_dir])
-        os.unlink(female_zip)
-
-        logger.info(f"Female model downloaded to {female_dir}")
-    except Exception as e:
-        logger.error(f"Failed to download female model: {str(e)}")
-
-    # Download male model
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
-            male_zip = temp_file.name
-
-        run_command([
-            "curl", "-L", "-o", male_zip,
-            "https://github.com/SWivid/F5-TTS/releases/download/v1.0.0/male.zip"
-        ])
-
-        run_command(["unzip", "-o", male_zip, "-d", male_dir])
-        os.unlink(male_zip)
-
-        logger.info(f"Male model downloaded to {male_dir}")
-    except Exception as e:
-        logger.error(f"Failed to download male model: {str(e)}")
-
-    return True
+        import f5_tts
+        logger.info(f"F5-TTS được cài đặt thành công và sẵn sàng sử dụng tại: {f5_tts.__file__}")
+        return True
+    except ImportError as e:
+        logger.error(f"Lỗi import F5-TTS sau khi cài đặt: {str(e)}")
+        return False
 
 
 def install_viettts():
     """Install VietTTS and download its models."""
     logger.info("Installing VietTTS...")
 
-    # Create temp directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        try:
-            run_command(["git", "clone", "https://github.com/NTT123/vietTTS.git", temp_dir])
-            run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=temp_dir)
+    # Kiểm tra xem VietTTS đã được cài đặt chưa
+    try:
+        import vietTTS
+        logger.info(f"VietTTS đã được cài đặt tại: {vietTTS.__file__}")
+    except ImportError:
+        logger.info("VietTTS chưa được cài đặt, đang cài đặt...")
 
-            logger.info("VietTTS installed successfully")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to install VietTTS: {str(e)}")
-            return False
+        # Clone và cài đặt VietTTS
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                run_command(["git", "clone", "https://github.com/NTT123/vietTTS.git", temp_dir])
+                run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=temp_dir)
+                logger.info("VietTTS đã được cài đặt thành công")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Không thể cài đặt VietTTS: {str(e)}")
+                return False
 
     # Download models
-    logger.info("Downloading VietTTS models...")
+    logger.info("Đang tải models VietTTS...")
     models_dir = os.path.expanduser("~/.config/vietTTS")
     os.makedirs(models_dir, exist_ok=True)
 
     female_dir = os.path.join(models_dir, "infore_female")
     os.makedirs(female_dir, exist_ok=True)
 
-    # Download lexicon
-    try:
-        lexicon_path = os.path.join(models_dir, "lexicon.pkl")
-        run_command([
-            "curl", "-L", "-o", lexicon_path,
-            "https://github.com/NTT123/vietTTS/releases/download/v0.2.0/lexicon.pkl"
-        ])
-        logger.info(f"Lexicon downloaded to {lexicon_path}")
-    except Exception as e:
-        logger.error(f"Failed to download lexicon: {str(e)}")
+    lexicon_path = os.path.join(models_dir, "lexicon.pkl")
+    female_config = os.path.join(female_dir, "config.json")
 
-    # Download female model
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as temp_file:
-            female_tar = temp_file.name
+    # Download lexicon nếu chưa tồn tại
+    if not os.path.exists(lexicon_path):
+        try:
+            run_command([
+                "curl", "-L", "-o", lexicon_path,
+                "https://github.com/NTT123/vietTTS/releases/download/v0.2.0/lexicon.pkl"
+            ])
+            logger.info(f"Lexicon đã được tải về {lexicon_path}")
+        except Exception as e:
+            logger.error(f"Không thể tải lexicon: {str(e)}")
 
-        run_command([
-            "curl", "-L", "-o", female_tar,
-            "https://github.com/NTT123/vietTTS/releases/download/v0.2.0/infore_female_latest.tar.gz"
-        ])
+    # Download female model nếu chưa tồn tại
+    if not os.path.exists(female_config):
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as temp_file:
+                female_tar = temp_file.name
 
-        run_command(["tar", "-xf", female_tar, "-C", female_dir])
-        os.unlink(female_tar)
+            run_command([
+                "curl", "-L", "-o", female_tar,
+                "https://github.com/NTT123/vietTTS/releases/download/v0.2.0/infore_female_latest.tar.gz"
+            ])
 
-        logger.info(f"Female model downloaded to {female_dir}")
-    except Exception as e:
-        logger.error(f"Failed to download female model: {str(e)}")
+            run_command(["tar", "-xf", female_tar, "-C", female_dir])
+            os.unlink(female_tar)
+
+            logger.info(f"Female model đã được tải về {female_dir}")
+        except Exception as e:
+            logger.error(f"Không thể tải female model: {str(e)}")
 
     return True
 
@@ -175,7 +223,7 @@ def install_system_deps():
 
         run_command([
             sys.executable, "-m", "pip", "install",
-            "numpy", "scipy", "librosa", "torch", "pydub"
+            "numpy", "scipy", "librosa", "pydub"
         ])
 
         logger.info("System dependencies installed successfully")

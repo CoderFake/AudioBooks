@@ -63,7 +63,9 @@ services:
 
   # FastAPI TTS Service
   tts-service:
-    image: python:3.10-slim
+    build:
+      context: ./tts-service
+      dockerfile: Dockerfile
     container_name: audiobooks_tts
     working_dir: /app
     ports:
@@ -73,6 +75,8 @@ services:
       - ./logs:/app/logs
       - ./temp/tts_temp:/tmp/tts_temp
       - ./temp/tts_uploads:/tmp/tts_uploads
+      - f5tts_models:/root/.config/f5-tts/models
+      - viettts_models:/root/.config/vietTTS
     environment:
       - MONGODB_URL=mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-123456}@audiobooks_mongodb:27017/${MONGO_DATABASE:-audiobooksDB}?authSource=admin
       - MONGODB_DATABASE=${MONGO_DATABASE:-audiobooksDB}
@@ -90,12 +94,12 @@ services:
       - DEFAULT_VOICE_MODEL=${DEFAULT_VOICE_MODEL:-female}
       - CHUNK_SIZE=${CHUNK_SIZE:-5000}
       - TTS_TEMP_DIR=/tmp/tts_temp
+      - PYTHONPATH=/app:/opt/F5-TTS/src:/opt/vietTTS
     depends_on:
       - mongodb
     networks:
       - audiobooks-network
     restart: unless-stopped
-    command: sh -c "apt-get update && apt-get install -y build-essential libpq-dev ffmpeg libsndfile1 python3-dev git curl && pip install -r requirements.txt && python -m uvicorn main:app --host 0.0.0.0 --port 8000"
 
 networks:
   audiobooks-network:
@@ -103,3 +107,5 @@ networks:
 
 volumes:
   mongodb-data:
+  f5tts_models:
+  viettts_models:
