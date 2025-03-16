@@ -1,8 +1,23 @@
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
 from bson import ObjectId
-from models.user import PyObjectId
+from pydantic_core import core_schema
+
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: Any
+    ) -> core_schema.CoreSchema:
+        return core_schema.schema_with_serializer(
+            core_schema.str_schema(),
+            lambda obj: str(obj),
+            serialization=core_schema.SerializationInfo(
+                json_schema_extra={"type": "string"}
+            ),
+        )
 
 class Text(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
@@ -17,11 +32,10 @@ class Text(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+        "json_schema_extra": {
             "example": {
                 "title": "Truyện ngắn",
                 "content": "Đây là nội dung văn bản cần chuyển thành âm thanh.",
@@ -29,3 +43,4 @@ class Text(BaseModel):
                 "tags": ["truyện ngắn", "văn học"],
             }
         }
+    }

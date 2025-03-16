@@ -64,19 +64,16 @@ uvicorn==0.24.0
 email-validator>=2.0.0
 python-dateutil==2.9.0.post0
 
-# F5-TTS specific dependencies
+# Pydantic v2
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+typing-extensions>=4.6.1
+
+# PyTorch dependencies
 torch==2.0.0
 torchaudio==2.0.0
 torchvision==0.15.1
-accelerate
-bitsandbytes
-ema-pytorch>=0.5.2
-x-transformers>=1.31.14
-transformers
-transformers-stream-generator
-torchdiffeq
-vocos
-cached-path
-datasets
-safetensors
-wandb
+
+# VietTTS dependencies
+unidecode
+inflect

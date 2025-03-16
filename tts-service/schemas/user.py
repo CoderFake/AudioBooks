@@ -23,8 +23,8 @@ class UserResponse(UserBase):
     id: str
     disabled: bool = False
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "60d9b4b9f5b5f5b5f5b5f5b5",
                 "email": "user@example.com",
@@ -33,6 +33,7 @@ class UserResponse(UserBase):
                 "disabled": False
             }
         }
+    }
 
 class Token(BaseModel):
     access_token: str

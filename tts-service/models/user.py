@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import Optional, Any, ClassVar
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 
+
 class PyObjectId(ObjectId):
+    # Phiên bản đơn giản nhất cho Pydantic v2
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
@@ -14,9 +16,12 @@ class PyObjectId(ObjectId):
             raise ValueError("Invalid objectid")
         return ObjectId(v)
 
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __str__(self):
+        return str(self)
+
+    def __repr__(self):
+        return f"PyObjectId({super().__repr__()})"
+
 
 class User(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
@@ -29,16 +34,17 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
+    model_config: ClassVar[dict] = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+        "json_encoders": {ObjectId: str},
+        "json_schema_extra": {
             "example": {
-                "username": "johndoe",
-                "email": "johndoe@example.com",
-                "full_name": "John Doe",
+                "username": "user",
+                "email": "user@example.com",
+                "full_name": "User",
                 "disabled": False,
                 "is_admin": False
             }
         }
+    }

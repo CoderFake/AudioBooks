@@ -32,8 +32,8 @@ class AudioResponse(AudioBase):
     created_at: str
     updated_at: str
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "60d9b4b9f5b5f5b5f5b5f5b5",
                 "text_id": "60d9b4b9f5b5f5b5f5b5f5b5",
@@ -58,6 +58,7 @@ class AudioResponse(AudioBase):
                 "updated_at": "2023-07-15T10:40:00"
             }
         }
+    }
 
 class TTSRequest(BaseModel):
     text_id: str

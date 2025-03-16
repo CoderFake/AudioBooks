@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Type
 
-from services.tts.F5TTS_provider import F5TTSProvider
+from services.tts.vietTTS_provider import VietTTSProvider
 from services.tts.tts_base import TTSBase
 from services.tts.fallback_provider import FallbackTTSProvider
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class TTSFactory:
     def __init__(self):
         self._engines: Dict[str, Type[TTSBase]] = {
-            "f5-tts": F5TTSProvider,
+            "viettts": VietTTSProvider,
             "fallback": FallbackTTSProvider,
         }
         self._instances: Dict[str, TTSBase] = {}
@@ -21,18 +21,18 @@ class TTSFactory:
             voice_model = "female"
 
         try:
-            logger.info("Đang thử sử dụng F5-TTS engine")
-            f5_engine = F5TTSProvider(voice_model)
+            logger.info("Đang thử sử dụng VietTTS engine")
+            viettts_engine = VietTTSProvider(voice_model)
 
-            if f5_engine.is_available():
-                logger.info("F5-TTS engine khả dụng")
-                return f5_engine
+            if viettts_engine.is_available():
+                logger.info("VietTTS engine khả dụng")
+                return viettts_engine
             else:
-                logger.warning("F5-TTS không khả dụng")
-                raise ImportError("F5-TTS không khả dụng")
+                logger.warning("VietTTS không khả dụng")
+                raise ImportError("VietTTS không khả dụng")
 
-        except (ImportError, Exception) as f5_error:
-            logger.warning(f"Không thể sử dụng F5-TTS: {str(f5_error)}")
+        except (ImportError, Exception) as viettts_error:
+            logger.warning(f"Không thể sử dụng VietTTS: {str(viettts_error)}")
 
             try:
                 logger.info("Sử dụng fallback TTS engine")

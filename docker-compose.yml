@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
     command: sh -c "npm install && npm start"
 
-  # FastAPI TTS Service
+  # FastAPI TTS Service with VietTTS
   tts-service:
     build:
       context: ./tts-service
@@ -75,8 +75,8 @@ services:
       - ./logs:/app/logs
       - ./temp/tts_temp:/tmp/tts_temp
       - ./temp/tts_uploads:/tmp/tts_uploads
-      - f5tts_models:/root/.config/f5-tts/models
       - viettts_models:/root/.config/vietTTS
+      - ./.env:/app/.env
     environment:
       - MONGODB_URL=mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-123456}@audiobooks_mongodb:27017/${MONGO_DATABASE:-audiobooksDB}?authSource=admin
       - MONGODB_DATABASE=${MONGO_DATABASE:-audiobooksDB}
@@ -94,7 +94,7 @@ services:
       - DEFAULT_VOICE_MODEL=${DEFAULT_VOICE_MODEL:-female}
       - CHUNK_SIZE=${CHUNK_SIZE:-5000}
       - TTS_TEMP_DIR=/tmp/tts_temp
-      - PYTHONPATH=/app:/opt/F5-TTS/src:/opt/vietTTS
+      - PYTHONPATH=/app:/opt/vietTTS
     depends_on:
       - mongodb
     networks:
@@ -107,5 +107,4 @@ networks:
 
 volumes:
   mongodb-data:
-  f5tts_models:
   viettts_models:

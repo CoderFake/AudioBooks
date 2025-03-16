@@ -25,8 +25,8 @@ class TextResponse(TextBase):
     created_at: str
     updated_at: str
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "60d9b4b9f5b5f5b5f5b5f5b5",
                 "user_id": "60d9b4b9f5b5f5b5f5b5f5b5",
@@ -40,3 +40,4 @@ class TextResponse(TextBase):
                 "updated_at": "2023-07-15T10:35:00"
             }
         }
+    }
