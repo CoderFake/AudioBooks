@@ -1,30 +1,23 @@
-from typing import Optional, Any, ClassVar
+from typing import Optional, Any, Annotated
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, BeforeValidator
 from bson import ObjectId
 
 
-class PyObjectId(ObjectId):
-    # Phiên bản đơn giản nhất cho Pydantic v2
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+def validate_object_id(v: Any) -> str:
+    if isinstance(v, ObjectId):
+        return str(v)
+    if isinstance(v, str):
+        try:
+            return str(ObjectId(v))
+        except Exception:
+            raise ValueError("Invalid ObjectId format")
+    raise ValueError("Invalid ObjectId type")
 
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
-        return ObjectId(v)
-
-    def __str__(self):
-        return str(self)
-
-    def __repr__(self):
-        return f"PyObjectId({super().__repr__()})"
-
+PyObjectId = Annotated[str, BeforeValidator(validate_object_id)]
 
 class User(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     username: str
     email: EmailStr
     full_name: Optional[str] = None
@@ -34,7 +27,7 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    model_config: ClassVar[dict] = {
+    model_config = {
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
         "json_encoders": {ObjectId: str},
@@ -48,3 +41,9 @@ class User(BaseModel):
             }
         }
     }
+
+    def to_mongo(self) -> dict:
+        data = self.model_dump(by_alias=True)
+        if data.get("_id"):
+            data["_id"] = ObjectId(data["_id"])
+        return data

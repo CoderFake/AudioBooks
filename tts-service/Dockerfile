@@ -10,27 +10,36 @@ RUN apt-get update && apt-get install -y \
 # Cài đặt PyTorch phiên bản CPU
 RUN pip install torch==2.0.0 torchaudio==2.0.0 torchvision==0.15.1 --index-url https://download.pytorch.org/whl/cpu
 
-# Copy requirements.txt và cài đặt dependencies
+# Tạo thư mục cần thiết
+RUN mkdir -p /tmp/tts_temp /tmp/tts_uploads /opt/viet-tts /root/.config/vietTTS
+
+# Clone VietTTS từ GitHub repo gốc
+RUN git clone https://github.com/NTT123/vietTTS.git /opt/viet-tts
+
+# Cài đặt VietTTS
+RUN cd /opt/viet-tts && pip install -e .
+
+RUN export PYTHONPATH=$PYTHONPATH:/opt/viet-tts
+
+RUN echo 'export PYTHONPATH=$PYTHONPATH:/opt/viet-tts' >> ~/.bashrc
+
+# Tải lexicon.pkl từ releases
+RUN curl -L -o /root/.config/vietTTS/lexicon.pkl https://github.com/NTT123/vietTTS/releases/download/v0.2.0/lexicon.pkl
+
+# Tạo thư mục cho mô hình và tải mô hình
+RUN mkdir -p /root/.config/vietTTS/infore_female
+RUN curl -L https://github.com/NTT123/vietTTS/releases/download/v0.2.0/infore_female_latest.tar.gz | tar xz -C /root/.config/vietTTS/infore_female
+
+# Copy code ứng dụng
 COPY requirements.txt /app/
 RUN pip install -r requirements.txt
 
-# Tạo thư mục cần thiết
-RUN mkdir -p /tmp/tts_temp /tmp/tts_uploads /opt/viet-tts
-
-# Tải VietTTS từ Hugging Face (chỉ clone, không cài đặt)
-RUN git clone https://huggingface.co/dangvansam/viet-tts /opt/viet-tts
-
-# Tải models
-RUN mkdir -p ~/.config/vietTTS \
-    && if [ -d "/opt/viet-tts/models" ]; then cp -r /opt/viet-tts/models/* ~/.config/vietTTS/ || echo "No models to copy"; fi
-
-# Copy code ứng dụng
 COPY . /app/
 
 # Expose port
 EXPOSE 8000
 
-# Thiết lập PYTHONPATH để tìm thấy cả vietTTS từ models HuggingFace
+# Thiết lập PYTHONPATH để tìm thấy VietTTS
 ENV PYTHONPATH="/app:/opt/viet-tts:${PYTHONPATH}"
 
 # Chạy ứng dụng FastAPI

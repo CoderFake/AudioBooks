@@ -1,6 +1,6 @@
 import os
-from pydantic import field_validator
-from pydantic import BaseModel
+from typing import ClassVar
+from pydantic import field_validator, BaseModel
 from dotenv import load_dotenv
 
 # Tải file .env trước
@@ -14,7 +14,7 @@ class Settings(BaseModel):
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "TTS Service")
 
     # MongoDB Settings
-    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://admin:123456@audiobooks_mongodb:27017/audiobooksDB?authSource=admin")
+    MONGODB_URL: str = os.getenv("MONGODB_URL", "")
     MONGODB_DATABASE: str = os.getenv("MONGODB_DATABASE", "audiobooksDB")
 
     # Security Settings
@@ -32,6 +32,10 @@ class Settings(BaseModel):
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "5000"))
     TTS_TEMP_DIR: str = os.getenv("TTS_TEMP_DIR", "/tmp/tts_temp")
 
+    model_config: ClassVar[dict] = {
+        "populate_by_name": True
+    }
+
     @field_validator("TTS_TEMP_DIR")
     @classmethod
     def create_tts_temp_dir(cls, v):
@@ -44,4 +48,4 @@ class Settings(BaseModel):
         return v.replace("\\n", "\n")
 
 
-settings = Settings()  # type: ignore
+settings = Settings()

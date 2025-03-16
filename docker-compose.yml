@@ -94,7 +94,7 @@ services:
       - DEFAULT_VOICE_MODEL=${DEFAULT_VOICE_MODEL:-female}
       - CHUNK_SIZE=${CHUNK_SIZE:-5000}
       - TTS_TEMP_DIR=/tmp/tts_temp
-      - PYTHONPATH=/app:/opt/vietTTS
+      - PYTHONPATH=/app:/opt/viet-tts
     depends_on:
       - mongodb
     networks:

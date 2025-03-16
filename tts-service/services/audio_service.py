@@ -176,7 +176,15 @@ class AudioService:
 
                     duration = get_audio_duration(segment_filename)
 
-                    segment_temp_url = f"temp_segment_{i}"
+                    # Upload individual segment
+                    document_id = f"{audio.user_id}_{audio.text_id}_{audio_id}"
+                    segment_id = f"segment_{i}"
+                    segment_url = await upload_audio_segment_to_firestore(
+                        segment_filename,
+                        "audios",
+                        document_id,
+                        segment_id
+                    )
 
                     segment = {
                         "start_index": start_index,
@@ -184,7 +192,7 @@ class AudioService:
                         "start_time": total_duration,
                         "end_time": total_duration + duration,
                         "text": chunk_text,
-                        "url": segment_temp_url
+                        "url": segment_url
                     }
 
                     segments.append(segment)
@@ -207,18 +215,6 @@ class AudioService:
                     collection_path,
                     f"{audio.user_id}_{audio.text_id}_{audio_id}"
                 )
-
-                # Upload từng segment (nếu cần)
-                logger.info(f"Uploading {len(segments)} audio segments to Firestore...")
-                for i, segment in enumerate(segments):
-                    segment_id = f"segment_{i}"
-                    segment_url = await upload_audio_segment_to_firestore(
-                        segment_files[i],
-                        collection_path,
-                        f"{audio.user_id}_{audio.text_id}_{audio_id}",
-                        segment_id
-                    )
-                    segments[i]["url"] = segment_url
 
                 logger.info(f"Updating audio record in database...")
                 await self.audio_repository.update_with_segments(
@@ -252,5 +248,5 @@ class AudioService:
             logger.exception(f"Error in _process_audio_task: {str(e)}")
             try:
                 await self.audio_repository.update_status(audio_id, "failed", str(e))
-            except:
+            except Exception:
                 pass

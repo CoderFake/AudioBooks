@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -14,35 +14,37 @@ class TextRepository:
     async def get_by_id(self, id: str) -> Optional[Text]:
         text = await self.collection.find_one({"_id": ObjectId(id)})
         if text:
-            return Text(**text)
+            return Text.model_validate(text)
         return None
 
     async def get_by_user_id(self, user_id: str, skip: int = 0, limit: int = 100) -> List[Text]:
         texts = []
         cursor = self.collection.find({"user_id": ObjectId(user_id)}).skip(skip).limit(limit)
         async for document in cursor:
-            texts.append(Text(**document))
+            texts.append(Text.model_validate(document))
         return texts
 
-    async def create(self, text_data: dict) -> Text:
+    async def create(self, text_data: Dict[str, Any]) -> Text:
         if "user_id" in text_data and isinstance(text_data["user_id"], str):
             text_data["user_id"] = ObjectId(text_data["user_id"])
 
         text_data["word_count"] = len(text_data.get("content", "").split())
-
         text_data["created_at"] = datetime.utcnow()
         text_data["updated_at"] = text_data["created_at"]
         text_data["status"] = "pending"
 
         result = await self.collection.insert_one(text_data)
         text = await self.collection.find_one({"_id": result.inserted_id})
-        return Text(**text)
+        return Text.model_validate(text)
 
-    async def update(self, id: str, text_data: dict) -> Optional[Text]:
+    async def update(self, id: str, text_data: Dict[str, Any]) -> Optional[Text]:
         if "content" in text_data:
             text_data["word_count"] = len(text_data["content"].split())
 
         text_data["updated_at"] = datetime.utcnow()
+
+        if "_id" in text_data:
+            del text_data["_id"]
 
         await self.collection.update_one(
             {"_id": ObjectId(id)}, {"$set": text_data}
@@ -71,5 +73,5 @@ class TextRepository:
         texts = []
         cursor = self.collection.find().skip(skip).limit(limit)
         async for document in cursor:
-            texts.append(Text(**document))
+            texts.append(Text.model_validate(document))
         return texts

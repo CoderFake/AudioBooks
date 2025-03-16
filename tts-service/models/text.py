@@ -1,31 +1,27 @@
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Annotated
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, BeforeValidator
 from bson import ObjectId
-from pydantic_core import core_schema
 
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls,
-        _source_type: Any,
-        _handler: Any
-    ) -> core_schema.CoreSchema:
-        return core_schema.schema_with_serializer(
-            core_schema.str_schema(),
-            lambda obj: str(obj),
-            serialization=core_schema.SerializationInfo(
-                json_schema_extra={"type": "string"}
-            ),
-        )
+def validate_object_id(v: Any) -> str:
+    if isinstance(v, ObjectId):
+        return str(v)
+    if isinstance(v, str):
+        try:
+            return str(ObjectId(v))
+        except Exception:
+            raise ValueError("Invalid ObjectId format")
+    raise ValueError("Invalid ObjectId type")
+
+PyObjectId = Annotated[str, BeforeValidator(validate_object_id)]
 
 class Text(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     user_id: PyObjectId
     title: str
     content: str
     language: str = "vi"
-    tags: List[str]
+    tags: List[str] = []
     status: str = "pending"
     processing_error: Optional[str] = None
     word_count: int = 0
@@ -35,6 +31,7 @@ class Text(BaseModel):
     model_config = {
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
+        "json_encoders": {ObjectId: str},
         "json_schema_extra": {
             "example": {
                 "title": "Truyện ngắn",
@@ -44,3 +41,11 @@ class Text(BaseModel):
             }
         }
     }
+
+    def to_mongo(self) -> dict:
+        data = self.model_dump(by_alias=True)
+        if data.get("_id"):
+            data["_id"] = ObjectId(data["_id"])
+        if data.get("user_id"):
+            data["user_id"] = ObjectId(data["user_id"])
+        return data

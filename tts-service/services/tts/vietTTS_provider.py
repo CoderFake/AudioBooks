@@ -1,57 +1,59 @@
 import os
+import sys
 import logging
 import asyncio
 import tempfile
-import subprocess
 from typing import List, Optional
-import sys
 
-# Thêm đường dẫn tới thư mục VietTTS từ Hugging Face
+
 viet_tts_path = '/opt/viet-tts'
-if viet_tts_path not in sys.path and os.path.exists(viet_tts_path):
+if viet_tts_path not in sys.path:
     sys.path.append(viet_tts_path)
 
 from services.tts.tts_base import TTSBase
 
 logger = logging.getLogger(__name__)
 
-
 class VietTTSProvider(TTSBase):
     def __init__(self, voice_model: str = "female"):
-        logger.info(f"Initializing VietTTSProvider with voice model: {voice_model}")
+        logger.info(f"Khởi tạo VietTTSProvider với voice model: {voice_model}")
         self._voice_model = voice_model if voice_model in self.supported_voices else "female"
-        self._check_viettts_installation()
 
     async def synthesize(self, text: str, output_file: str) -> None:
         try:
-            logger.info(f"Synthesizing text with VietTTS using {self._voice_model} voice")
-            logger.info(f"Output file: {output_file}")
+            logger.info(f"Bắt đầu tổng hợp văn bản: '{text[:50]}...'")
 
-            # Tạo file text tạm thời
-            with tempfile.NamedTemporaryFile(suffix='.txt', mode='w', encoding='utf-8', delete=False) as f:
-                text_file = f.name
-                f.write(text)
-
-            # Đảm bảo thư mục output tồn tại
             os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
+            code = f"""
+                import sys
+                sys.path.append('{viet_tts_path}')
+                from vietTTS.synthesizer import Synthesizer
+                from vietTTS.hifigan.mel2wave import Mel2Wave
+                import soundfile as sf
+                
+                try:
+                    text = '''{text}'''
+                    print(f"Tổng hợp văn bản: {{text[:50]}}...")
+                    
+                    # Tổng hợp
+                    mels = Synthesizer().synthesize(text)
+                    wav = Mel2Wave().infer(mels)
+                    
+                    # Lưu file
+                    sf.write('{output_file}', wav, 22050)
+                    print('Tổng hợp thành công!')
+                except Exception as e:
+                    print(f"Error: {{e}}")
+                    sys.exit(1)
+                """
 
-            # Sử dụng Python trực tiếp để chạy script từ Hugging Face
-            synthesize_script = os.path.join(viet_tts_path, "synthesize.py")
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', suffix='.py', delete=False) as tmp:
+                script_path = tmp.name
+                tmp.write(code)
 
-            # Các tham số: text file, output file, model
-            command = [
-                "python", synthesize_script,
-                "--input", text_file,
-                "--output", output_file,
-                "--voice", self._voice_model
-            ]
-
-            # Ghi log lệnh thực thi
-            logger.info(f"Executing command: {' '.join(command)}")
-
-            # Thực thi lệnh
+            logger.info(f"Thực thi script")
             process = await asyncio.create_subprocess_exec(
-                *command,
+                "python", script_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -59,95 +61,40 @@ class VietTTSProvider(TTSBase):
             stdout, stderr = await process.communicate()
 
             if stdout:
-                logger.info(f"STDOUT: {stdout.decode()}")
+                logger.info(f"Output: {stdout.decode()}")
             if stderr:
-                logger.warning(f"STDERR: {stderr.decode()}")
+                logger.error(f"Error: {stderr.decode()}")
 
-            # Kiểm tra kết quả
             if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(f"Error synthesizing speech: {error_msg}")
-                raise Exception(f"VietTTS synthesis failed: {error_msg}")
+                raise Exception(f"VietTTS failed with error: {stderr.decode() if stderr else 'Unknown error'}")
 
-            # Xóa file tạm
-            os.unlink(text_file)
+            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                logger.info(f"Tổng hợp giọng nói thành công: {output_file}")
+            else:
+                raise Exception("Output file is empty or doesn't exist")
 
-            logger.info(f"Successfully synthesized text to {output_file}")
+            try:
+                os.unlink(script_path)
+            except Exception as e:
+                logger.warning(f"Không thể xóa file tạm: {str(e)}")
 
         except Exception as e:
-            logger.exception(f"Error in VietTTS synthesis: {str(e)}")
-            # Kiểm tra sự tồn tại của các files và scripts
-            if os.path.exists(viet_tts_path):
-                logger.info(f"VietTTS directory exists: {viet_tts_path}")
-                logger.info(f"Contents: {os.listdir(viet_tts_path)}")
-            else:
-                logger.error(f"VietTTS directory not found: {viet_tts_path}")
-
-            # Kiểm tra thêm môi trường
-            logger.info(f"Current directory: {os.getcwd()}")
-            logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
-
+            logger.exception(f"Lỗi khi tổng hợp giọng nói với VietTTS: {str(e)}")
             raise
 
     def is_available(self) -> bool:
         try:
-            if not os.path.exists(viet_tts_path):
-                logger.error(f"VietTTS directory not found at {viet_tts_path}")
-                return False
+            import vietTTS
+            from vietTTS.synthesizer import Synthesizer
+            from vietTTS.hifigan.mel2wave import Mel2Wave
 
-            synthesize_script = os.path.join(viet_tts_path, "synthesize.py")
-            if not os.path.exists(synthesize_script):
-                logger.error(f"Synthesize script not found at {synthesize_script}")
-                return False
-
-            # Kiểm tra lệnh python trực tiếp
-            logger.info(f"Checking if VietTTS script can be executed: {synthesize_script}")
-            result = subprocess.run(
-                ["python", synthesize_script, "--help"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=5
-            )
-
-            if result.returncode != 0:
-                logger.error(f"Error executing VietTTS script: {result.stderr.decode()}")
-                return False
-
-            logger.info("VietTTS is available and can be executed")
+            logger.info(f"VietTTS được cài đặt tại: {vietTTS.__file__}")
             return True
-        except Exception as e:
-            logger.error(f"Error checking VietTTS availability: {str(e)}")
+        except ImportError as e:
+            logger.error(f"VietTTS không khả dụng - lỗi import: {str(e)}")
             return False
-
-    def _check_viettts_installation(self) -> bool:
-        try:
-            # Kiểm tra thư mục VietTTS
-            if not os.path.exists(viet_tts_path):
-                logger.warning(f"VietTTS directory not found at {viet_tts_path}")
-                return False
-
-            # Kiểm tra script synthesize.py
-            synthesize_script = os.path.join(viet_tts_path, "synthesize.py")
-            if not os.path.exists(synthesize_script):
-                logger.warning(f"VietTTS synthesize script not found at {synthesize_script}")
-                return False
-
-            # Liệt kê files trong thư mục
-            logger.info(f"VietTTS files: {os.listdir(viet_tts_path)}")
-
-            # Kiểm tra thư mục models
-            models_dir = os.path.expanduser("~/.config/vietTTS")
-            logger.info(f"Checking models directory: {models_dir}")
-
-            if os.path.exists(models_dir):
-                logger.info(f"Models directory contents: {os.listdir(models_dir)}")
-            else:
-                logger.warning(f"Models directory not found: {models_dir}")
-                return False
-
-            return True
         except Exception as e:
-            logger.error(f"Error checking VietTTS installation: {str(e)}")
+            logger.error(f"Lỗi kiểm tra VietTTS: {str(e)}")
             return False
 
     @property
