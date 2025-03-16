@@ -21,25 +21,25 @@ class TTSFactory:
             voice_model = "female"
 
         try:
-            logger.info("Attempting to use F5-TTS engine")
+            logger.info("Đang thử sử dụng F5-TTS engine")
             f5_engine = F5TTSProvider(voice_model)
 
             if f5_engine.is_available():
-                logger.info("Using F5-TTS engine successfully")
+                logger.info("F5-TTS engine khả dụng")
                 return f5_engine
             else:
-                logger.warning("F5-TTS is not available")
+                logger.warning("F5-TTS không khả dụng")
                 raise ImportError("F5-TTS không khả dụng")
 
         except (ImportError, Exception) as f5_error:
-            logger.warning(f"Could not use F5-TTS: {str(f5_error)}")
+            logger.warning(f"Không thể sử dụng F5-TTS: {str(f5_error)}")
 
             try:
-                logger.info("Using fallback TTS engine as last resort")
+                logger.info("Sử dụng fallback TTS engine")
                 fallback_engine = FallbackTTSProvider(voice_model)
                 return fallback_engine
             except Exception as fallback_error:
-                logger.error(f"All TTS engines failed: {str(fallback_error)}")
+                logger.error(f"Tất cả TTS engines đều thất bại: {str(fallback_error)}")
                 raise RuntimeError("Không thể sử dụng bất kỳ TTS engine nào")
 
     def get_available_voices(self) -> Dict[str, list]:
@@ -50,7 +50,7 @@ class TTSFactory:
                 temp_instance = engine_class()
                 voices[engine_name] = temp_instance.supported_voices
             except Exception as e:
-                logger.error(f"Error getting voices from {engine_name}: {str(e)}")
+                logger.error(f"Lỗi lấy voices từ {engine_name}: {str(e)}")
                 voices[engine_name] = []
 
         return voices

@@ -58,12 +58,13 @@ async def synthesize_text(
         audio_repository: AudioRepository = Depends(get_audio_repository),
         text_repository: TextRepository = Depends(get_text_repository)
 ) -> Any:
+
     audio_service = AudioService(audio_repository, text_repository)
 
     audio = await audio_service.create_audio_request(request, current_user)
 
     if audio.status == "pending":
-        await audio_service.generate_audio(str(audio.id), background_tasks)
+        background_tasks.add_task(audio_service.generate_audio, str(audio.id), background_tasks)
 
     return AudioResponse(
         id=str(audio.id),
@@ -80,7 +81,6 @@ async def synthesize_text(
         created_at=audio.created_at.isoformat(),
         updated_at=audio.updated_at.isoformat()
     )
-
 
 @router.get("/{audio_id}", response_model=AudioResponse)
 async def read_audio(
@@ -157,7 +157,6 @@ async def get_audio_status(
         "updated_at": audio.updated_at.isoformat()
     }
 
-
 @router.post("/{audio_id}/regenerate")
 async def regenerate_audio(
         audio_id: str,
@@ -183,10 +182,9 @@ async def regenerate_audio(
     await audio_repository.update_status(audio_id, "pending")
 
     audio_service = AudioService(audio_repository, text_repository)
-    await audio_service.generate_audio(audio_id, background_tasks)
+    background_tasks.add_task(audio_service.generate_audio, audio_id, background_tasks)
 
     return {"status": "processing", "message": "Audio regeneration started"}
-
 
 @router.get("/{audio_id}/stream")
 async def stream_audio(
