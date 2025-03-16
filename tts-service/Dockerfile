@@ -19,10 +19,6 @@ RUN git clone https://github.com/NTT123/vietTTS.git /opt/viet-tts
 # Cài đặt VietTTS
 RUN cd /opt/viet-tts && pip install -e .
 
-RUN export PYTHONPATH=$PYTHONPATH:/opt/viet-tts
-
-RUN echo 'export PYTHONPATH=$PYTHONPATH:/opt/viet-tts' >> ~/.bashrc
-
 # Tải lexicon.pkl từ releases
 RUN curl -L -o /root/.config/vietTTS/lexicon.pkl https://github.com/NTT123/vietTTS/releases/download/v0.2.0/lexicon.pkl
 

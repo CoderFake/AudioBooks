@@ -88,8 +88,23 @@ class VietTTSProvider(TTSBase):
             from vietTTS.synthesizer import Synthesizer
             from vietTTS.hifigan.mel2wave import Mel2Wave
 
-            logger.info(f"VietTTS được cài đặt tại: {vietTTS.__file__}")
-            return True
+            synthesizer = Synthesizer()
+
+            try:
+                test_text = "Đây là một đoạn văn bản kiểm tra."
+                mels = synthesizer.synthesize(test_text)
+
+                if mels is None or len(mels) == 0:
+                    logger.error("Synthesizer returned empty/None mels")
+                    return False
+
+                logger.info(f"VietTTS được cài đặt tại: {vietTTS.__file__}")
+                return True
+
+            except Exception as synthesis_error:
+                logger.error(f"Lỗi khi tổng hợp văn bản: {str(synthesis_error)}")
+                return False
+
         except ImportError as e:
             logger.error(f"VietTTS không khả dụng - lỗi import: {str(e)}")
             return False
