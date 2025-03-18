@@ -15,7 +15,7 @@ decorator==5.2.1
 dnspython==2.7.0
 docx2txt==0.8
 extract-msg==0.23.1
-fastapi==0.104.1
+fastapi>=0.104.1
 ffmpeg-python==0.2.0
 firebase-admin==6.2.0
 google-api-core==2.24.2
@@ -23,9 +23,9 @@ google-auth==2.38.0
 google-cloud-firestore==2.20.1
 google-cloud-storage>=1.37.1,<2.0
 h11==0.14.0
-Jinja2==3.1.4
+jinja2==3.1.4
 joblib==1.4.2
-jose==1.0.0
+python-jose>=3.3.0
 langdetect==1.0.9
 librosa==0.10.1
 lxml==5.3.1
@@ -45,7 +45,6 @@ PyPDF2==3.0.1
 pytest==7.4.3
 pytest-asyncio==0.21.1
 python-docx==1.0.1
-python-jose==3.3.0
 python-multipart==0.0.6
 python-slugify==8.0.1
 PyYAML==6.0.1
@@ -56,24 +55,13 @@ scikit-learn==1.6.1
 scipy==1.13.1
 soundfile==0.12.1
 starlette==0.27.0
-tensorflow>=2.16.1
-keras>=3.0.0
-textract==1.6.3
 tqdm==4.67.1
 uvicorn==0.24.0
 email-validator>=2.0.0
 python-dateutil==2.9.0.post0
+aiohttp>=3.9.0
 
 # Pydantic v2
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 typing-extensions>=4.6.1
-
-# PyTorch dependencies
-torch==2.0.0
-torchaudio==2.0.0
-torchvision==0.15.1
-
-# VietTTS dependencies
-unidecode
-inflect

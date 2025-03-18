@@ -3,8 +3,8 @@ from typing import ClassVar
 from pydantic import field_validator, BaseModel
 from dotenv import load_dotenv
 
-# Tải file .env trước
 load_dotenv('/app/.env')
+
 
 class Settings(BaseModel):
     # API Settings
@@ -28,9 +28,13 @@ class Settings(BaseModel):
     FIREBASE_CLIENT_EMAIL: str = os.getenv("FIREBASE_CLIENT_EMAIL", "dummy@example.com")
     FIREBASE_STORAGE_BUCKET: str = os.getenv("FIREBASE_STORAGE_BUCKET", "dev-bucket")
 
+    # TTS Settings
     DEFAULT_VOICE_MODEL: str = os.getenv("DEFAULT_VOICE_MODEL", "female")
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "5000"))
     TTS_TEMP_DIR: str = os.getenv("TTS_TEMP_DIR", "/tmp/tts_temp")
+
+    # VietTTS API URL
+    VIETTTS_API_URL: str = os.getenv("VIETTTS_API_URL", "http://viet-tts:6000")
 
     model_config: ClassVar[dict] = {
         "populate_by_name": True
@@ -46,6 +50,5 @@ class Settings(BaseModel):
     @classmethod
     def decode_firebase_key(cls, v):
         return v.replace("\\n", "\n")
-
 
 settings = Settings()

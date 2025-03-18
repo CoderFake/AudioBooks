@@ -61,7 +61,28 @@ services:
     restart: unless-stopped
     command: sh -c "npm install && npm start"
 
-  # FastAPI TTS Service with VietTTS
+  # VietTTS API Service
+  viet-tts:
+    build:
+      context: ./viet-tts-service
+      dockerfile: Dockerfile
+    container_name: audiobooks_viettts
+    ports:
+      - "${VIETTTS_PORT:-5000}:5000"
+    volumes:
+      - ./temp/viet_tts_output:/tmp/viet_tts_output
+      - viettts_cache:/root/.cache/viettts
+      - viettts_voices:/root/voices
+    networks:
+      - audiobooks-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI TTS Service
   tts-service:
     build:
       context: ./tts-service
@@ -75,7 +96,6 @@ services:
       - ./logs:/app/logs
       - ./temp/tts_temp:/tmp/tts_temp
       - ./temp/tts_uploads:/tmp/tts_uploads
-      - viettts_models:/root/.config/vietTTS
       - ./.env:/app/.env
     environment:
       - MONGODB_URL=mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-123456}@audiobooks_mongodb:27017/${MONGO_DATABASE:-audiobooksDB}?authSource=admin
@@ -94,9 +114,10 @@ services:
       - DEFAULT_VOICE_MODEL=${DEFAULT_VOICE_MODEL:-female}
       - CHUNK_SIZE=${CHUNK_SIZE:-5000}
       - TTS_TEMP_DIR=/tmp/tts_temp
-      - PYTHONPATH=/app:/opt/viet-tts
+      - VIETTTS_API_URL=http://viet-tts:6000
     depends_on:
       - mongodb
+      - viet-tts
     networks:
       - audiobooks-network
     restart: unless-stopped
@@ -107,4 +128,5 @@ networks:
 
 volumes:
   mongodb-data:
-  viettts_models:
+  viettts_cache:   # Cache cho VietTTS
+  viettts_voices:  # Thư mục để lưu giọng customized
